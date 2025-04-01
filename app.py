@@ -76,9 +76,9 @@ def face(img_in):
 
 with gr.Blocks() as demo:
   gr.Markdown("""
-              # 9103H 2024F Face Alignment Tool.
+              # 5020A Face Alignment Tool.
               ## Interface for face detection, alignment, cropping\
-              to help create dataset for [HW10](https://github.com/DM-GY-9103-2024F-H/HW10).
+              to help create dataset for [WK11](https://github.com/PSAM-5020-2025S-A/WK11) / [HW11](https://github.com/PSAM-5020-2025S-A/Homework11).
               """)
 
   gr.Interface(
