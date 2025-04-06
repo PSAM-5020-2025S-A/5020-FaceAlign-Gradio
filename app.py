@@ -1,11 +1,11 @@
 import cv2
 import gradio as gr
 import numpy as np
-import matplotlib.pyplot as plt
 
+from huggingface_hub import hf_hub_download
 from math import atan2
-from os import listdir, path
 from PIL import Image as PImage
+from ultralytics import YOLO
 
 OUT_W = 130
 OUT_H = 170
@@ -15,8 +15,8 @@ OUT_NOSE_TOP = 72
 EYE_0_IDX = 36
 EYE_1_IDX = 45
 
-haarcascade = "./models/haarcascade_frontalface_alt2.xml"
-face_detector = cv2.CascadeClassifier(haarcascade)
+yolo_model_path = hf_hub_download(repo_id="AdamCodd/YOLOv11n-face-detection", filename="model.pt")
+face_detector = YOLO(yolo_model_path)
 
 LBFmodel = "./models/lbfmodel.yaml"
 landmark_detector  = cv2.face.createFacemarkLBF()
@@ -30,19 +30,22 @@ def face(img_in):
   if img_in is None:
     return out_pad
 
-  pimg = img_in.convert("L")
-  pimg.thumbnail((1000,1000))
-  imgg = np.array(pimg).copy()
+  img = img_in.copy()
+  img.thumbnail((1000,1000))
+  img_np = np.array(img).copy()
 
-  iw,ih = pimg.size
-  
-  faces = face_detector.detectMultiScale(imgg)
+  iw,ih = img.size
 
-  if len(faces) < 1:
+  output = face_detector.predict(img, verbose=False)
+
+  if len(output) < 1 or len(output[0]) < 1:
     return out_pad
 
+  faces_xyxy = output[0].boxes.xyxy.numpy()
+  faces = np.array([[x0, y0, (x1 - x0), (y1 - y0)] for x0,y0,x1,y1 in faces_xyxy])
+
   biggest_faces = faces[np.argsort(-faces[:,2])]
-  _, landmarks = landmark_detector.fit(imgg, biggest_faces)
+  _, landmarks = landmark_detector.fit(img_np, biggest_faces)
 
   if len(landmarks) < 1:
     return out_pad
@@ -58,7 +61,7 @@ def face(img_in):
     tilt_deg = 180 * tilt / np.pi
 
     scale = OUT_EYE_SPACE / abs(eye0[0] - eye1[0])
-    pimgs = pimg.resize((int(iw * scale), int(ih * scale)), resample=PImage.Resampling.LANCZOS)
+    img_s = img.resize((int(iw * scale), int(ih * scale)))
 
     # rotate around nose
     new_mid = [int(c * scale) for c in mid]
@@ -67,7 +70,7 @@ def face(img_in):
                 new_mid[0] + (OUT_W // 2),
                 new_mid[1] + (OUT_H - OUT_NOSE_TOP))
 
-    img_out = pimgs.rotate(tilt_deg, center=new_mid, resample=PImage.Resampling.BICUBIC).crop(crop_box)
+    img_out = img_s.rotate(tilt_deg, center=new_mid, resample=PImage.Resampling.BICUBIC).crop(crop_box).convert("L")
     out_images.append(gr.Image(img_out, visible=True))
 
   out_images += out_pad
@@ -86,7 +89,7 @@ with gr.Blocks() as demo:
     inputs=gr.Image(type="pil"),
     outputs=all_outputs,
     cache_examples=True,
-    examples=[["./imgs/03.webp"], ["./imgs/11.jpg"]],
+    examples=[["./imgs/03.webp"], ["./imgs/11.jpg"], ["./imgs/people.jpg"]],
     allow_flagging="never",
   )
 
