@@ -9,11 +9,16 @@ from ultralytics import YOLO
 
 OUT_W = 130
 OUT_H = 170
+
 OUT_EYE_SPACE = 64
+OUT_FACE_WIDTH = 89
 OUT_NOSE_TOP = 72
 
 EYE_0_IDX = 36
 EYE_1_IDX = 45
+
+TEMPLE_0_IDX = 0
+TEMPLE_1_IDX = 16
 
 yolo_model_path = hf_hub_download(repo_id="AdamCodd/YOLOv11n-face-detection", filename="model.pt")
 face_detector = YOLO(yolo_model_path)
@@ -54,13 +59,19 @@ def face(img_in):
   for landmark in landmarks:
     eye0 = np.array(landmark[0][EYE_0_IDX])
     eye1 = np.array(landmark[0][EYE_1_IDX])
+    temple0 = np.array(landmark[0][TEMPLE_0_IDX])
+    temple1 = np.array(landmark[0][TEMPLE_1_IDX])
+
     mid = np.mean([eye0, eye1], axis=0)
 
     eye_line = eye1 - eye0
     tilt = atan2(eye_line[1], eye_line[0])
     tilt_deg = 180 * tilt / np.pi
 
-    scale = OUT_EYE_SPACE / abs(eye0[0] - eye1[0])
+
+    scale = min(OUT_EYE_SPACE / np.linalg.norm(eye1 - eye0),
+                OUT_FACE_WIDTH / np.linalg.norm(temple1 - temple0))
+
     img_s = img.resize((int(iw * scale), int(ih * scale)))
 
     # rotate around nose
