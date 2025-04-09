@@ -1,4 +1,5 @@
 .DS_S*
 __pycache__/
 gradio_cached_examples/
+.gradio/
 .ipynb_checkpoints/
